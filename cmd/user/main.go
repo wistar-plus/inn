@@ -67,9 +67,6 @@ func main() {
 func route(e *gin.Engine) {
 	e.LoadHTMLGlob("*.html")
 	e.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "login.html", nil)
-	})
-	e.GET("/index", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.html", nil)
 	})
 
