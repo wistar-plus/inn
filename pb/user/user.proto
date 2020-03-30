@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+//protoc --proto_path=. --micro_out=. --go_out=. user.proto
+service User {
+	rpc GetUserById(GetUserByIdRequest) returns (UserResponse){}
+}
+
+message GetUserByIdRequest {
+	uint64 uid = 1;
+}
+
+message UserResponse {
+	uint64 uid = 1;
+	string email = 2;
+	string nickName = 3;
+}

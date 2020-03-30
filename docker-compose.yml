@@ -1,0 +1,162 @@
+version: '3'
+services:
+  etcd:
+    image: quay.io/coreos/etcd:latest
+    container_name: etcd-v3
+    ports:
+      - 2379:2379
+      - 2380:2380
+    environment:
+      ETCDCTL_API: 3
+    volumes:
+      - ./etcd/etcd-data:/etcd-data
+    command:
+      - "/usr/local/bin/etcd"
+      - "--name"
+      - "s1"
+      - "--data-dir"
+      - "/etcd-data"
+      - "--advertise-client-urls"
+      - "http://0.0.0.0:2379"
+      - --listen-client-urls
+      - "http://0.0.0.0:2379"
+      - "--initial-advertise-peer-urls"
+      - "http://0.0.0.0:2380"
+      - "--listen-peer-urls"
+      - "http://0.0.0.0:2380"
+      - "--initial-cluster-token"
+      - "tkn"
+      - "--initial-cluster"
+      - "s1=http://0.0.0.0:2380"
+      - "--initial-cluster-state"
+      - "new"
+    networks:
+      - innnet
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - 6379:6379
+    volumes:
+      - ./redis/data:/data
+      - ./redis/conf/redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - innnet
+  mysql:
+    image: mysql:latest
+    container_name: mysql
+    ports: 
+        - 3306:3306
+    environment: 
+        - MYSQL_ROOT_PASSWORD=root
+        - MYSQL_DATABASE=user
+    volumes:
+        - ./mysql/conf/conf.d:/etc/mysql/conf.d
+        - ./mysql/conf/init.d:/docker-entrypoint-initdb.d
+        - ./mysql/logs:/logs
+        - ./mysql/data:/var/lib/mysql      
+    networks:
+      - innnet
+  # phpmyadmin:
+  #   image: phpmyadmin/phpmyadmin
+  #   container_name: phpmyadmin
+  #   depends_on:
+  #     - mysql
+  #   environment:
+  #     - PMA_HOST=mysql 
+  #     - PMA_USER=${DB_USER}
+  #     - PMA_PORT=${DB_PORT}
+  #     - PMA_PASSWORD=${DB_PASSWORD}
+  #   ports:
+  #     - 9090:80
+  #   restart: always
+  #   networks:
+  #     - usernet
+  rabbitmq:
+    image: rabbitmq:3.8-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - innnet
+  user-service:
+    build: ./cmd/user
+    container_name: user_srv
+    ports:
+      - 8888:8888
+    environment:
+      ETCD_ADDR: "etcd:2379"
+      DB_DRIVER: "mysql"
+      DB_USER: "root"
+      DB_PASSWORD: "root"
+      DB_NAME: "user"
+      DB_HOST: "mysql"
+      DB_PORT: "3306"
+    restart: on-failure
+    depends_on:
+      - mysql
+      - redis
+      - etcd
+    networks:
+      - innnet
+  gateway-service:
+    build: ./cmd/gateway
+    container_name: gateway_srv
+    ports:
+      - 8080:8080
+    environment:
+      ETCD_ADDR: "etcd:2379"
+      MQ_ADDR: "rabbitmq:5672"
+      REDIS_ADDR: "redis:6379"
+    restart: on-failure
+    depends_on:
+      - redis
+      - etcd
+    networks:
+      - innnet
+  message-service:
+    build: ./cmd/message
+    container_name: message_srv
+    # ports:
+      #- 8888:8888
+    environment:
+      ETCD_ADDR: "etcd:2379"
+      MQ_ADDR: "rabbitmq:5672"
+      REDIS_ADDR: "redis:6379"
+      DB_DRIVER: "mysql"
+      DB_USER: "root"
+      DB_PASSWORD: "root"
+      DB_NAME: "message"
+      DB_HOST: "mysql"
+      DB_PORT: "3306"
+    restart: on-failure
+    depends_on:
+      - mysql
+      - redis
+      - etcd
+    networks:
+      - innnet
+  message-service2:
+    build: ./cmd/message
+    container_name: message_srv2
+    environment:
+      ETCD_ADDR: "etcd:2379"
+      MQ_ADDR: "rabbitmq:5672"
+      REDIS_ADDR: "redis:6379"
+      DB_DRIVER: "mysql"
+      DB_USER: "root"
+      DB_PASSWORD: "root"
+      DB_NAME: "message"
+      DB_HOST: "mysql"
+      DB_PORT: "3306"
+    restart: on-failure
+    depends_on:
+      - mysql
+      - redis
+      - etcd
+    networks:
+      - innnet
+networks:
+  innnet:
+    driver: bridge

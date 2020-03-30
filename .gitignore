@@ -1,0 +1,32 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, build with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# log
+*.log
+
+# vscode folder
+.vscode/
+
+# mysql
+mysql/data/*
+mysql/logs/*
+
+# redis
+redis/data/*
+
+# etcd
+etcd/etcd-data/*
+
+cmd/message/message
+cmd/user/user
+cmd/gateway/gateway

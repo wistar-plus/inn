@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Insert title here</title>
+    <link rel="stylesheet" href="//unpkg.com/element-ui@1.3.6/lib/theme-default/index.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <!-- 引入组件库 -->
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        .el-row {
+            margin-bottom: 20px;
+
+            &:last-child {
+                margin-bottom: 0;
+            }
+        }
+
+        .login-box {
+            margin-top: 20%;
+            margin-left: 40%;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-box" id="app">
+        <el-row>
+            <el-col :span="8">
+                <el-input id="name" v-model="name" placeholder="请输入帐号">
+                    <template slot="prepend">帐号</template>
+                </el-input>
+            </el-col>
+        </el-row>
+        <el-row>
+            <el-col :span="8">
+                <el-input id="password" v-model="password" type="password" placeholder="请输入密码">
+                    <template slot="prepend">密码</template>
+                </el-input>
+            </el-col>
+        </el-row>
+        <el-row>
+            <el-col :span="8">
+                <el-button id="login" v-on:click="check" style="width:100%" type="primary">登录</el-button>
+            </el-col>
+        </el-row>
+    </div>
+</body>
+
+<script type="text/javascript">
+    new Vue({
+        el: '#app',
+        data: {
+            name: '',
+            password: ''
+        },
+        methods: {
+            check: function (event) {
+                //获取值
+                var name = this.name;
+                var password = this.password;
+                if (name == '' || password == '') {
+                    this.$message({
+                        message: '账号或密码为空！',
+                        type: 'error'
+                    })
+                    return;
+                }
+                axios.post('http://localhost:8888/login', {
+                    email: name,
+                    pwd: password
+                })
+                    .then(function (response) {
+                        console.log(response)
+                        if (response.data.code == 200) {
+                            window.location.href = "/index_ws"
+                        }
+                    })
+                    .catch(function (error) {
+                        console.log(error);
+                    });
+            }
+        }
+    })
+
+</script>
+
+</html>
