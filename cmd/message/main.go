@@ -6,6 +6,7 @@ import (
 	"inn/internal/message/rpc"
 	"inn/internal/message/service"
 	msgpb "inn/pb/message"
+	"inn/pkg/tracer"
 	"log"
 	"os"
 	"os/signal"
@@ -15,10 +16,15 @@ import (
 	"github.com/micro/go-micro"
 	"github.com/micro/go-micro/broker"
 	"github.com/micro/go-micro/registry"
+	"github.com/micro/go-micro/transport/grpc"
 	"github.com/micro/go-plugins/broker/rabbitmq"
 	"github.com/micro/go-plugins/registry/etcdv3"
+	traceplugin "github.com/micro/go-plugins/wrapper/trace/opentracing"
+	"github.com/opentracing/opentracing-go"
 	"github.com/spf13/viper"
 )
+
+const name = "go.micro.srv.message"
 
 func main() {
 	conf.Init()
@@ -26,7 +32,7 @@ func main() {
 	redis.Init()
 	defer redis.Close()
 
-	etcdRegisty := etcdv3.NewRegistry(func(options *registry.Options) {
+	etcdRegistry := etcdv3.NewRegistry(func(options *registry.Options) {
 		options.Addrs = []string{viper.GetString("ETCD.ADDR")}
 	})
 
@@ -35,17 +41,21 @@ func main() {
 		options.Addrs = []string{viper.GetString("MQ.ADDR")}
 	})
 
-	mq.Init()
-	err := mq.Connect()
+	t, io, err := tracer.NewTracer(name, viper.GetString("JAEGER.ADDR"))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
+	defer io.Close()
+	opentracing.SetGlobalTracer(t)
 
 	// 创建服务
 	srv := micro.NewService(
-		micro.Name(viper.GetString("SERVER.NAME")),
-		micro.Registry(etcdRegisty),
+		micro.Name(name),
+		micro.Registry(etcdRegistry),
 		micro.Broker(mq),
+		micro.Transport(grpc.NewTransport()),
+		micro.WrapHandler(traceplugin.NewHandlerWrapper(t)),
+		micro.WrapCall(traceplugin.NewCallWrapper(t)),
 	)
 
 	// Init will parse the command line flags.

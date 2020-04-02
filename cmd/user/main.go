@@ -2,23 +2,28 @@ package main
 
 import (
 	"inn/internal/user/conf"
-	"inn/internal/user/controller"
 	"inn/internal/user/repository/persistence/orm"
-	"inn/internal/user/service"
+	"inn/internal/user/rpc"
+	"inn/pkg/tracer"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"sync/atomic"
 	"syscall"
 
-	"github.com/gin-gonic/gin"
+	userpb "inn/pb/user"
+
+	traceplugin "github.com/micro/go-plugins/wrapper/trace/opentracing"
+
+	"github.com/micro/go-micro"
 	"github.com/micro/go-micro/registry"
-	"github.com/micro/go-micro/web"
+	"github.com/micro/go-micro/transport/grpc"
 	"github.com/micro/go-plugins/registry/etcdv3"
-	"github.com/pkg/errors"
+	"github.com/opentracing/opentracing-go"
 	"github.com/spf13/viper"
 )
+
+const name = "go.micro.srv.user"
 
 func main() {
 	//初始化
@@ -33,19 +38,32 @@ func main() {
 		},
 	)
 
-	srv := web.NewService(
-		web.Name(viper.GetString("SERVER.NAME")),
-		web.Registry(etcdRegistry),
-		web.Address(viper.GetString("SERVER.ADDR")),
+	t, io, err := tracer.NewTracer(name, viper.GetString("JAEGER.ADDR"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer io.Close()
+	opentracing.SetGlobalTracer(t)
+
+	// 创建服务
+	srv := micro.NewService(
+		micro.Name(name),
+		micro.Registry(etcdRegistry),
+		micro.Transport(grpc.NewTransport()),
+		micro.WrapHandler(traceplugin.NewHandlerWrapper(t)),
+		micro.WrapCall(traceplugin.NewCallWrapper(t)),
 	)
 
-	engine := gin.New()
-	route(engine)
+	srv.Init()
 
-	srv.Handle("/", engine)
+	userpb.RegisterUserHandler(
+		srv.Server(),
+		rpc.NewUserRpc(orm.NewUserRepository()),
+	)
+
 	go func() {
 		if err := srv.Run(); err != nil {
-			panic(errors.Wrap(err, "http.user.server run err"))
+			panic(err)
 		}
 	}()
 
@@ -62,22 +80,4 @@ func main() {
 	log.Println("user service shutdown")
 	os.Exit(int(atomic.LoadInt32(&state)))
 
-}
-
-func route(e *gin.Engine) {
-	e.LoadHTMLGlob("*.html")
-	e.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.html", nil)
-	})
-
-	userController := controller.NewUserController(service.NewUserService(orm.NewUserRepository()))
-
-	e.POST("/register", userController.Register)
-	e.POST("/login", userController.Login)
-
-	e.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-		})
-	})
 }

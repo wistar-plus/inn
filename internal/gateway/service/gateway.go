@@ -28,7 +28,7 @@ func (gs *GateWayService) StoreConn(uid uint64, conn *model.Conn) {
 	// }
 }
 
-func (gs *GateWayService) SendMessage(senderUid, recipientUid uint64, content string, msgType int32) {
+func (gs *GateWayService) SendMessage(ctx context.Context, senderUid, recipientUid uint64, content string, msgType int32) {
 	msg := &msgpb.SendMsgRequest{
 		SenderUid:    senderUid,
 		RecipientUid: recipientUid,
@@ -36,7 +36,8 @@ func (gs *GateWayService) SendMessage(senderUid, recipientUid uint64, content st
 		MsgType:      msgType,
 	}
 	fmt.Println("发送消息给 msgSrv: ", msg)
-	rsp, err := gs.messageSrvice.SendMsg(context.TODO(), msg)
+
+	rsp, err := gs.messageSrvice.SendMsg(ctx, msg)
 	if err != nil {
 		fmt.Println(err)
 	}

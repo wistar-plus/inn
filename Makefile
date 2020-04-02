@@ -1,12 +1,11 @@
 .PHONY: *
 
 run-user:
-	
-	cd cmd/user && go run main.go
+	go run cmd/user/main.go
 run-msg:
 	go run cmd/message/main.go
 run-gw:
-	go run cmd/gateway/main.go
+	cd cmd/gateway && go run main.go
 
 docker-build:
 	cd cmd/user && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v

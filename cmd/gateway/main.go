@@ -1,29 +1,32 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"inn/internal/gateway/conf"
 	"inn/internal/gateway/repository/persistence/redis"
-	"inn/internal/gateway/repository/persistence/syncmap"
-	"inn/internal/gateway/service"
 	"inn/internal/gateway/subscriber"
-	"inn/internal/gateway/websocket"
-	msgpb "inn/pb/message"
+	"inn/pkg/tracer"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync/atomic"
 	"syscall"
+	"time"
 
-	"github.com/micro/go-micro"
+	"inn/internal/gateway/route"
+
+	"inn/internal/gateway/repository/persistence/syncmap"
+
+	"github.com/gin-gonic/gin"
 	"github.com/micro/go-micro/broker"
-	"github.com/micro/go-micro/registry"
-	"github.com/micro/go-micro/web"
 	"github.com/micro/go-plugins/broker/rabbitmq"
-	"github.com/micro/go-plugins/registry/etcdv3"
-	"github.com/pkg/errors"
+	"github.com/opentracing/opentracing-go"
 	"github.com/spf13/viper"
 )
+
+const name = "go.web.srv.gateway"
 
 func main() {
 	//初始化
@@ -32,37 +35,26 @@ func main() {
 	redis.Init()
 	defer redis.Close()
 
-	//运行websocket
-	etcdRegistry := etcdv3.NewRegistry(
-		func(opt *registry.Options) {
-			opt.Addrs = []string{viper.GetString("ETCD.ADDR")}
-		},
-	)
+	t, io, err := tracer.NewTracer(name, viper.GetString("JAEGER.ADDR"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer io.Close()
+	opentracing.SetGlobalTracer(t)
 
-	srv := web.NewService(
-		web.Name(viper.GetString("SERVER.NAME")),
-		web.Registry(etcdRegistry),
-		web.Address(viper.GetString("SERVER.ADDR")),
-	)
+	engine := gin.New()
+	route.Router(engine)
 
-	msgSrv := micro.NewService(
-		micro.Name("grpc.msg.client"),
-		micro.Registry(etcdRegistry),
-	)
-	msgSrv.Init()
-	// Create new greeter client
-	msg := msgpb.NewMessageService("grpc.msg.server", msgSrv.Client())
-
-	userConnRepo := syncmap.NewUserConnRepository()
-	userTopicRepo := redis.NewUserTopicRepository()
-	ws := websocket.NewGateWayHandler(service.NewGateWayService(userConnRepo, userTopicRepo, msg))
-
-	srv.Handle("/ws", ws)
-	//srv.HandleFunc(, wsHandler)
+	server := &http.Server{
+		Addr:         viper.GetString("SERVER.ADDR"),
+		Handler:      engine,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+	}
 
 	go func() {
-		if err := srv.Run(); err != nil {
-			panic(errors.Wrap(err, "ws.gw.server run err"))
+		if err := server.ListenAndServe(); err != nil {
+			log.Fatalf("HTTP server listen: %s\n", err)
 		}
 	}()
 
@@ -72,14 +64,13 @@ func main() {
 	})
 
 	pubSub.Init()
-	err1 := pubSub.Connect()
-	if err1 != nil {
-		panic(err1)
+	err = pubSub.Connect()
+	if err != nil {
+		panic(err)
 	}
-
+	userConnRepo := syncmap.NewUserConnRepository()
 	sub := subscriber.NewMessageSubscriber(userConnRepo)
-	_, err := pubSub.Subscribe(viper.GetString("TOPIC"), sub.Handler)
-
+	_, err = pubSub.Subscribe(viper.GetString("TOPIC"), sub.Handler)
 	if err != nil {
 		fmt.Printf("sub error: %v\n", err)
 	}
@@ -93,6 +84,12 @@ func main() {
 	sig := <-sc
 	atomic.StoreInt32(&state, 0)
 	log.Printf("received exit signal:[%s]", sig.String())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatal("Server Shutdown:", err)
+	}
 
 	log.Println("gateway service shutdown")
 	os.Exit(int(atomic.LoadInt32(&state)))

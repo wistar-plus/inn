@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>inn</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <!-- 引入组件库 -->
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+
+<body>
+    <div class="login-box" id="app">
+        <div class="block" style="margin-bottom: 20px;">
+            <el-row>
+                <el-avatar :size="50" src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png">
+                </el-avatar>
+                <span v-if="loginUser.nickName" v-text="loginUser.nickName + ' 登录成功'"></span>
+                <el-button style="float: right;" @click="dialogVisible = true" type="text">登录</el-button>
+            </el-row>
+        </div>
+
+        <el-tabs tab-position="left" v-model="sessionTabsName" type="card">
+            <el-tab-pane v-for="(item,k) in sessionTabs" :key="item.name" :label="item.title" :name="item.name">
+                <el-input type="textarea" :rows="12" v-model="item.content">
+                </el-input>
+                <el-input v-model="item.input" placeholder="请输入内容" style="width: 90%;"></el-input>
+                <el-button @click="handleChat(item)">发送</el-button>
+                </el-row>
+            </el-tab-pane>
+        </el-tabs>
+
+
+        <el-dialog title="登录" :visible.sync="dialogVisible" width="30%">
+            <el-row>
+                <el-input id="name" v-model="name" placeholder="请输入帐号">
+                    <template slot="prepend">帐号</template>
+                </el-input>
+            </el-row>
+            <el-row>
+                <el-input id="password" v-model="password" type="password" placeholder="请输入密码">
+                    <template slot="prepend">密码</template>
+                </el-input>
+            </el-row>
+            <el-row>
+                <el-button id="login" v-on:click="check" style="width:100%" type="primary">登录</el-button>
+            </el-row>
+            <span slot="footer" class="dialog-footer">
+                <el-button @click="dialogVisible = false">取 消</el-button>
+            </span>
+        </el-dialog>
+
+
+
+    </div>
+</body>
+
+<script type="text/javascript">
+
+    var heartBeat = {
+        timeout: 120000,
+        timeoutObj: null,
+        serverTimeoutObj: null,
+        reset: function () {
+            clearTimeout(this.timeoutObj);
+            clearTimeout(this.serverTimeoutObj);
+            this.start();
+        },
+        start: function () {
+            var self = this;
+            this.timeoutObj = setTimeout(() => {
+                var sender_id = app.loginUser.uid;
+                var sendMsgJson = '{ "type": 0, "data": {"uid":' + sender_id + ',"timeout": 120000}}';
+                websocket.send(sendMsgJson);
+                self.serverTimeoutObj = setTimeout(function () {
+                    websocket.close();
+                    this.$message.error("失去连接！")
+                }, self.timeout)
+            }, this.timeout)
+        },
+    }
+
+    var app = new Vue({
+        el: '#app',
+        data() {
+            return {
+                dialogVisible: false,
+                name: 'wistarplus@gmail.com',
+                password: '123456',
+                loginUser: {},
+                userList: [],
+                sessionTabsName: '',
+                sessionTabs: [],
+                tabIndex: 2,
+            }
+        },
+        methods: {
+            check() {
+                //获取值
+                var name = this.name;
+                var password = this.password;
+                if (name == '' || password == '') {
+                    this.$message({
+                        message: '账号或密码为空！',
+                        type: 'error'
+                    })
+                    return;
+                }
+                axios.post('http://localhost:8888/login', {
+                    email: name,
+                    pwd: password
+                }).then((response) => {
+                    if (response.data.code == 200) {
+                        this.$message({
+                            message: '登录成功',
+                            type: 'success'
+                        });
+                        this.loginUser = response.data.data.loginUser
+                        this.userList = response.data.data.userList
+                        this.userList.forEach((user, index) => {
+                            this.addTab(user)
+                        });
+                        this.initWebsocket()
+                        this.dialogVisible = false
+                    } else {
+                        this.$message.error(response.data.msg);
+                    }
+                })
+            },
+            handleChat(row) {
+                var recipient_id = row.name
+                var msg_content = row.input
+                var sender_id = this.loginUser.uid
+                var sendMsgJson = '{ "type": 3, "data": {"senderUid":' + sender_id + ',"recipientUid":' + recipient_id + ', "content":"' + msg_content + '","msgType":1  }}';
+                websocket.send(sendMsgJson);
+                row.content += this.loginUser.nickName + ": " + msg_content + "\n"
+            },
+            initWebsocket() {
+                websocket = new WebSocket("ws://localhost:8888/ws");
+                websocket.onmessage = (event) => {
+                    this.onmsg(event);
+                };
+                websocket.onopen = () => {
+                    this.bind();
+                    heartBeat.start();
+                }
+                websocket.onclose = () => {
+                    this.reconnect();
+                };
+                websocket.onerror = () => {
+                    this.reconnect();
+                };
+            },
+            bind() { //上线
+                if (window.WebSocket) {
+                    if (websocket.readyState == WebSocket.OPEN) {
+                        var bindJson = '{ "type": 1, "data": {"uid":' + this.loginUser.uid + ' }}';
+                        websocket.send(bindJson);
+                    }
+                } else {
+                    return;
+                }
+            },
+            reconnect() {
+                websocket = new WebSocket("ws://localhost:8888/ws");
+                console.log("重新上线")
+                websocket.onmessage = function (event) {
+                    onmsg(event);
+                };
+
+                websocket.onopen = function () {
+                    bind();
+                    heartBeat.start();
+                }
+
+                websocket.onclose = function () {
+                    reconnect();
+                };
+
+                websocket.onerror = function () {
+                    reconnect();
+                };
+
+            },
+            onmsg(event) {
+                if (event != '') {
+                    heartBeat.reset();
+                    var resp = JSON.parse(event.data);
+                    if (resp != null) {
+                        console.log(resp)
+                        switch (resp.type) {
+                            case 1:
+                                this.handleBindResp(resp);
+                                break;
+                            case 2:
+                                this.handleQueryMsgResp(resp);
+                                break;
+
+                            case 3:
+                                this.handleSendMsgResp(resp);
+                                break;
+
+                            case 4:
+                                this.handleReceivedMsg(resp);
+                                break;
+
+                            case 5:
+                                this.handleLoopUnreadResp(resp);
+                                break;
+                        }
+                    }
+                }
+            },
+            addTab(row) {
+                this.sessionTabs.push({
+                    title: row.nickName,
+                    name: row.uid + '',
+                    content: '',
+                    input: '',
+                });
+            },
+            handleBindResp(resp) {
+                var status = resp.status;
+                if (status != "" && status == 'success') {
+                    this.$message({
+                        message: 'websocket登录成功',
+                        type: 'success'
+                    });
+                } else {
+                    this.$message.error("未上线!");
+                }
+            },
+            handleSendMsgResp(resp) {
+                var jsonContent = resp.data;
+                var tabName = jsonContent.senderId
+
+                this.sessionTabs.forEach(item => {
+                    if (item.name == tabName) {
+                        item.content += item.title + ": " + jsonContent.content + "\n"
+                    }
+                })
+            }
+
+        }
+    })
+
+</script>
+
+</html>

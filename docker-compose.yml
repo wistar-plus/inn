@@ -83,9 +83,8 @@ services:
   user-service:
     build: ./cmd/user
     container_name: user_srv
-    ports:
-      - 8888:8888
     environment:
+      JAEGER_ADDR: "jaeger:6831"
       ETCD_ADDR: "etcd:2379"
       DB_DRIVER: "mysql"
       DB_USER: "root"
@@ -98,14 +97,16 @@ services:
       - mysql
       - redis
       - etcd
+      - jaeger
     networks:
       - innnet
   gateway-service:
     build: ./cmd/gateway
     container_name: gateway_srv
     ports:
-      - 8080:8080
+      - 8888:8888
     environment:
+      JAEGER_ADDR: "jaeger:6831"
       ETCD_ADDR: "etcd:2379"
       MQ_ADDR: "rabbitmq:5672"
       REDIS_ADDR: "redis:6379"
@@ -113,14 +114,14 @@ services:
     depends_on:
       - redis
       - etcd
+      - jaeger
     networks:
       - innnet
   message-service:
     build: ./cmd/message
     container_name: message_srv
-    # ports:
-      #- 8888:8888
     environment:
+      JAEGER_ADDR: "jaeger:6831"
       ETCD_ADDR: "etcd:2379"
       MQ_ADDR: "rabbitmq:5672"
       REDIS_ADDR: "redis:6379"
@@ -135,12 +136,14 @@ services:
       - mysql
       - redis
       - etcd
+      - jaeger
     networks:
       - innnet
   message-service2:
     build: ./cmd/message
     container_name: message_srv2
     environment:
+      JAEGER_ADDR: "jaeger:6831"
       ETCD_ADDR: "etcd:2379"
       MQ_ADDR: "rabbitmq:5672"
       REDIS_ADDR: "redis:6379"
@@ -155,8 +158,25 @@ services:
       - mysql
       - redis
       - etcd
+      - jaeger
     networks:
       - innnet
+  jaeger:
+    image: jaegertracing/all-in-one
+    container_name: jaeger
+    ports:
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "16686:16686"
+      - "14268:14268"
+      - "9411:9411"
+    environment:
+      COLLECTOR_ZIPKIN_HTTP_PORT: 9411
+    networks:
+      - innnet
+
 networks:
   innnet:
     driver: bridge

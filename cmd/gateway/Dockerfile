@@ -1,6 +1,6 @@
 FROM alpine:latest
 
-ADD gateway .
+ADD / .
 
 EXPOSE 8888 
 

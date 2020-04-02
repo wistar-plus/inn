@@ -26,6 +26,7 @@ redis/data/*
 
 # etcd
 etcd/etcd-data/*
+etcdctl
 
 cmd/message/message
 cmd/user/user
