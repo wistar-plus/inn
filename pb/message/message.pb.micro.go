@@ -35,8 +35,8 @@ var _ server.Option
 
 type MessageService interface {
 	SendMsg(ctx context.Context, in *SendMsgRequest, opts ...client.CallOption) (*MessageResponse, error)
-	QueryConversationMsg(ctx context.Context, in *QueryConversationMsgRequest, opts ...client.CallOption) (*MessageResponse, error)
-	QueryNewerMsgFrom(ctx context.Context, in *QueryNewerMsgFromRequest, opts ...client.CallOption) (*MessageResponse, error)
+	QueryRecordFrom(ctx context.Context, in *QueryRecordFromRequest, opts ...client.CallOption) (*MessagesResponse, error)
+	QueryNewerMsgFrom(ctx context.Context, in *QueryNewerMsgFromRequest, opts ...client.CallOption) (*MessagesResponse, error)
 	QueryContacts(ctx context.Context, in *QueryContactsRequest, opts ...client.CallOption) (*MessageContactResponse, error)
 	QueryTotalUnread(ctx context.Context, in *QueryTotalUnreadRequest, opts ...client.CallOption) (*UnreadResponse, error)
 }
@@ -69,9 +69,9 @@ func (c *messageService) SendMsg(ctx context.Context, in *SendMsgRequest, opts .
 	return out, nil
 }
 
-func (c *messageService) QueryConversationMsg(ctx context.Context, in *QueryConversationMsgRequest, opts ...client.CallOption) (*MessageResponse, error) {
-	req := c.c.NewRequest(c.name, "Message.QueryConversationMsg", in)
-	out := new(MessageResponse)
+func (c *messageService) QueryRecordFrom(ctx context.Context, in *QueryRecordFromRequest, opts ...client.CallOption) (*MessagesResponse, error) {
+	req := c.c.NewRequest(c.name, "Message.QueryRecordFrom", in)
+	out := new(MessagesResponse)
 	err := c.c.Call(ctx, req, out, opts...)
 	if err != nil {
 		return nil, err
@@ -79,9 +79,9 @@ func (c *messageService) QueryConversationMsg(ctx context.Context, in *QueryConv
 	return out, nil
 }
 
-func (c *messageService) QueryNewerMsgFrom(ctx context.Context, in *QueryNewerMsgFromRequest, opts ...client.CallOption) (*MessageResponse, error) {
+func (c *messageService) QueryNewerMsgFrom(ctx context.Context, in *QueryNewerMsgFromRequest, opts ...client.CallOption) (*MessagesResponse, error) {
 	req := c.c.NewRequest(c.name, "Message.QueryNewerMsgFrom", in)
-	out := new(MessageResponse)
+	out := new(MessagesResponse)
 	err := c.c.Call(ctx, req, out, opts...)
 	if err != nil {
 		return nil, err
@@ -113,8 +113,8 @@ func (c *messageService) QueryTotalUnread(ctx context.Context, in *QueryTotalUnr
 
 type MessageHandler interface {
 	SendMsg(context.Context, *SendMsgRequest, *MessageResponse) error
-	QueryConversationMsg(context.Context, *QueryConversationMsgRequest, *MessageResponse) error
-	QueryNewerMsgFrom(context.Context, *QueryNewerMsgFromRequest, *MessageResponse) error
+	QueryRecordFrom(context.Context, *QueryRecordFromRequest, *MessagesResponse) error
+	QueryNewerMsgFrom(context.Context, *QueryNewerMsgFromRequest, *MessagesResponse) error
 	QueryContacts(context.Context, *QueryContactsRequest, *MessageContactResponse) error
 	QueryTotalUnread(context.Context, *QueryTotalUnreadRequest, *UnreadResponse) error
 }
@@ -122,8 +122,8 @@ type MessageHandler interface {
 func RegisterMessageHandler(s server.Server, hdlr MessageHandler, opts ...server.HandlerOption) error {
 	type message interface {
 		SendMsg(ctx context.Context, in *SendMsgRequest, out *MessageResponse) error
-		QueryConversationMsg(ctx context.Context, in *QueryConversationMsgRequest, out *MessageResponse) error
-		QueryNewerMsgFrom(ctx context.Context, in *QueryNewerMsgFromRequest, out *MessageResponse) error
+		QueryRecordFrom(ctx context.Context, in *QueryRecordFromRequest, out *MessagesResponse) error
+		QueryNewerMsgFrom(ctx context.Context, in *QueryNewerMsgFromRequest, out *MessagesResponse) error
 		QueryContacts(ctx context.Context, in *QueryContactsRequest, out *MessageContactResponse) error
 		QueryTotalUnread(ctx context.Context, in *QueryTotalUnreadRequest, out *UnreadResponse) error
 	}
@@ -142,11 +142,11 @@ func (h *messageHandler) SendMsg(ctx context.Context, in *SendMsgRequest, out *M
 	return h.MessageHandler.SendMsg(ctx, in, out)
 }
 
-func (h *messageHandler) QueryConversationMsg(ctx context.Context, in *QueryConversationMsgRequest, out *MessageResponse) error {
-	return h.MessageHandler.QueryConversationMsg(ctx, in, out)
+func (h *messageHandler) QueryRecordFrom(ctx context.Context, in *QueryRecordFromRequest, out *MessagesResponse) error {
+	return h.MessageHandler.QueryRecordFrom(ctx, in, out)
 }
 
-func (h *messageHandler) QueryNewerMsgFrom(ctx context.Context, in *QueryNewerMsgFromRequest, out *MessageResponse) error {
+func (h *messageHandler) QueryNewerMsgFrom(ctx context.Context, in *QueryNewerMsgFromRequest, out *MessagesResponse) error {
 	return h.MessageHandler.QueryNewerMsgFrom(ctx, in, out)
 }
 

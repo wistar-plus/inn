@@ -12,17 +12,49 @@ type MessageContent struct {
 }
 
 type MessageRelation struct {
-	OwnerUid  uint64    `gorm:"primary_key;not null" json:"ownerUid"`
+	OwnerUid  uint64    `gorm:"primary_key;auto_increment:false;not null" json:"ownerUid"`
 	OtherUid  uint64    `gorm:"not null" json:"otherUid"`
-	Mid       uint64    `gorm:"primary_key;not null" json:"mid"`
+	Mid       uint64    `gorm:"primary_key;auto_increment:false;not null" json:"mid"`
 	Type      int       `gorm:"not null" json:"type"`
 	CreatedAt time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"created_at"`
 }
 
 type MessageContact struct {
-	OwnerUid  uint64    `primary_key;gorm:"not null" json:"ownerUid"`
-	OtherUid  uint64    `primary_key;gorm:"not null" json:"otherUid"`
+	OwnerUid  uint64    `gorm:"primary_key;auto_increment:false;not null" json:"ownerUid"`
+	OtherUid  uint64    `gorm:"primary_key;auto_increment:false;not null" json:"otherUid"`
 	Mid       uint64    `gorm:"not null" json:"mid"`
 	Type      int       `gorm:"not null" json:"type"`
 	CreatedAt time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"created_at"`
+}
+
+type MessageContactVO struct {
+	OwnerUid     uint64
+	OwnerAvatar  string
+	OwnerName    string
+	TotalUnread  int64
+	ContactInfos []*ContactInfo
+}
+
+type ContactInfo struct {
+	OtherUid    uint64
+	OtherName   string
+	OtherAvatar string
+	Mid         uint64
+	Type        int
+	Content     string
+	ConvUnread  int64
+	CreateTime  int64
+}
+
+type MessageVO struct {
+	Mid            uint64
+	Content        string
+	OwnerUid       uint64
+	Type           int
+	OtherUid       uint64
+	CreateTime     int64
+	OwnerUidAvatar string
+	OtherUidAvatar string
+	OwnerName      string
+	OtherName      string
 }

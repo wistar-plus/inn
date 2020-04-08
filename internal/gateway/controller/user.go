@@ -2,6 +2,7 @@ package controller
 
 import (
 	"inn/internal/user/model"
+	msgpb "inn/pb/message"
 	userpb "inn/pb/user"
 	"inn/pkg/e"
 	"inn/pkg/gintool"
@@ -11,11 +12,12 @@ import (
 )
 
 type UserController struct {
-	userSrv userpb.UserService
+	userSrv    userpb.UserService
+	messageSrv msgpb.MessageService
 }
 
-func NewUserController(userSrv userpb.UserService) *UserController {
-	return &UserController{userSrv: userSrv}
+func NewUserController(userSrv userpb.UserService, messageSrv msgpb.MessageService) *UserController {
+	return &UserController{userSrv: userSrv, messageSrv: messageSrv}
 }
 
 func (uc *UserController) Register(c *gin.Context) {
@@ -68,13 +70,19 @@ func (uc *UserController) Login(c *gin.Context) {
 		return
 	}
 
-	rsp, err := uc.userSrv.GetAllUsersExcept(ctx, &userpb.GetAllUsersExceptRequest{Uid: user.GetUid()})
+	rsp, err := uc.userSrv.GetAllUsersExcept(ctx, &userpb.UserIdRequest{Uid: user.GetUid()})
+	if err != nil {
+		gintool.ResError(c, e.Fail, err)
+	}
+
+	contacts, err := uc.messageSrv.QueryContacts(ctx, &msgpb.QueryContactsRequest{OwnerUid: user.GetUid()})
 	if err != nil {
 		gintool.ResError(c, e.Fail, err)
 	}
 
 	gintool.ResSuccess(c, map[string]interface{}{
-		"loginUser": user,
-		"userList":  rsp.Users,
+		"loginUser":   user,
+		"userList":    rsp.Users,
+		"contactList": contacts,
 	})
 }

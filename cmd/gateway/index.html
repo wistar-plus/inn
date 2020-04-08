@@ -13,26 +13,52 @@
 </head>
 
 <body>
-    <div class="login-box" id="app">
-        <div class="block" style="margin-bottom: 20px;">
-            <el-row>
-                <el-avatar :size="50" src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png">
+    <div style="margin-top: 100px;margin-left: 10%;margin-right: 10%;" id="app">
+
+        <el-card class="box-card">
+            <div slot="header" class="clearfix">
+                <el-avatar :size="30" src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png">
                 </el-avatar>
                 <span v-if="loginUser.nickName" v-text="loginUser.nickName + ' 登录成功'"></span>
-                <el-button style="float: right;" @click="dialogVisible = true" type="text">登录</el-button>
-            </el-row>
-        </div>
-
-        <el-tabs tab-position="left" v-model="sessionTabsName" type="card">
-            <el-tab-pane v-for="(item,k) in sessionTabs" :key="item.name" :label="item.title" :name="item.name">
-                <el-input type="textarea" :rows="12" v-model="item.content">
-                </el-input>
-                <el-input v-model="item.input" placeholder="请输入内容" style="width: 90%;"></el-input>
-                <el-button @click="handleChat(item)">发送</el-button>
-                </el-row>
-            </el-tab-pane>
-        </el-tabs>
-
+                <el-button style="float: right; padding: 3px 0" type="text" @click="dialogVisible = true">登录</el-button>
+            </div>
+            <div>
+                <el-tabs v-model="tabsName" type="card">
+                    <el-tab-pane name="contact">
+                        <span slot="label">
+                            <i class="el-icon-s-custom">最近联系人</i>
+                            <el-badge :value="totalUnread" v-if="totalUnread>0" size="mini"></el-badge>
+                        </span>
+                        <el-tabs tab-position="left" v-model="sessionTabsName" type="card"
+                            @tab-click="handleSessionClick">
+                            <el-tab-pane v-for="(item,k) in sessionTabs" :key="item.name" :name="item.name">
+                                <span slot="label">
+                                    <i v-text="item.title"></i>
+                                    <el-badge :value="item.unread" v-if="item.unread>0" size="mini">
+                                    </el-badge>
+                                </span>
+                                <el-input type="textarea" :rows="12" v-model="item.content">
+                                </el-input>
+                                <el-input v-model="item.input" placeholder="请输入内容" style="width: 90%;"></el-input>
+                                <el-button @click="handleChat(item)">发送</el-button>
+                                </el-row>
+                            </el-tab-pane>
+                        </el-tabs>
+                    </el-tab-pane>
+                    <el-tab-pane label="用户列表" name="user">
+                        <el-table :data="userList" border style="width: 100%">
+                            <el-table-column prop="nickName" label="用户" width="180">
+                            </el-table-column>
+                            <el-table-column label="操作">
+                                <template slot-scope="scope">
+                                    <el-button size="mini" @click="toChat(scope.row)">聊天</el-button>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </el-tab-pane>
+                </el-tabs>
+            </div>
+        </el-card>
 
         <el-dialog title="登录" :visible.sync="dialogVisible" width="30%">
             <el-row>
@@ -92,9 +118,12 @@
                 password: '123456',
                 loginUser: {},
                 userList: [],
+                contactList: [],
+                tabsName: 'contact',
                 sessionTabsName: '',
                 sessionTabs: [],
                 tabIndex: 2,
+                totalUnread: 0,
             }
         },
         methods: {
@@ -120,8 +149,10 @@
                         });
                         this.loginUser = response.data.data.loginUser
                         this.userList = response.data.data.userList
-                        this.userList.forEach((user, index) => {
-                            this.addTab(user)
+                        this.contactList = response.data.data.contactList.contactInfoList || []
+                        this.totalUnread = response.data.data.contactList.totalUnread
+                        this.contactList.forEach((contact, index) => {
+                            this.addContact(contact)
                         });
                         this.initWebsocket()
                         this.dialogVisible = false
@@ -214,11 +245,37 @@
                     }
                 }
             },
+            toChat(row) {
+                this.addTab(row)
+                this.tabsName = 'contact'
+                this.sessionTabsName = row.uid + ''
+            },
             addTab(row) {
+                var exist = false
+                this.sessionTabs.forEach(item => {
+                    if (item.name == row.uid + '') {
+                        exist = true
+                        return
+                    }
+                })
+                if (!exist) {
+                    this.sessionTabs.push({
+                        title: row.nickName,
+                        name: row.uid + '',
+                        content: '',
+                        unread: 0,
+                        input: '',
+                    });
+                }
+
+            },
+            addContact(row) {
                 this.sessionTabs.push({
-                    title: row.nickName,
-                    name: row.uid + '',
+                    title: row.otherName,
+                    name: row.otherUid + '',
                     content: '',
+                    unread: row.convUnread,
+                    minMid: row.mid,
                     input: '',
                 });
             },
@@ -242,8 +299,44 @@
                         item.content += item.title + ": " + jsonContent.content + "\n"
                     }
                 })
+            },
+            handleSessionClick(tab, event) {
+                var sessionTab = null
+                this.sessionTabs.forEach(item => {
+                    if (item.name == tab.name) {
+                        sessionTab = item
+                        return
+                    }
+                })
+                if (sessionTab == null || !sessionTab.unread || sessionTab.unread <= 0) {
+                    return
+                }
+                var owner_uid = this.loginUser.uid
+                var other_uid = sessionTab.name
+                var from_mid = sessionTab.minMid + 1
+                var sendMsgJson = '{ "type": 2, "data": {"ownerUid":' + owner_uid + ',"otherUid":' + other_uid + ', "fromMid":"' + from_mid + '","count": ' + sessionTab.unread + ' }}';
+                websocket.send(sendMsgJson);
+            },
+            handleQueryMsgResp(resp) {
+                var messages = resp.messages
+                for (let i = 0; i < this.sessionTabs.length; ++i) {
+                    if (this.sessionTabs[i].name == resp.otherUid + '') {
+                        this.totalUnread -= this.sessionTabs[i].unread
+                        this.sessionTabs[i].unread = 0
+                        messages.forEach(message => {
+                            var name = ""
+                            if (!message.type || message.type == 0) {
+                                name = message.ownerName
+                            } else if (message.type == 1) {
+                                name = message.otherName
+                            }
+                            this.sessionTabs[i].content = name + ": " + message.content + "\n" + this.sessionTabs[i].content
+                            this.sessionTabs[i].minMid = message.mid
+                        })
+                        break;
+                    }
+                }
             }
-
         }
     })
 

@@ -34,8 +34,8 @@ var _ server.Option
 // Client API for User service
 
 type UserService interface {
-	//rpc GetUserById(GetUserByIdRequest) returns (UserResponse){}
-	GetAllUsersExcept(ctx context.Context, in *GetAllUsersExceptRequest, opts ...client.CallOption) (*UsersResponse, error)
+	GetAllUsersExcept(ctx context.Context, in *UserIdRequest, opts ...client.CallOption) (*UsersResponse, error)
+	GetUserById(ctx context.Context, in *UserIdRequest, opts ...client.CallOption) (*UserResponse, error)
 	Login(ctx context.Context, in *LoginRequest, opts ...client.CallOption) (*UserResponse, error)
 	Register(ctx context.Context, in *RegisterRequest, opts ...client.CallOption) (*RegisterResponse, error)
 }
@@ -58,9 +58,19 @@ func NewUserService(name string, c client.Client) UserService {
 	}
 }
 
-func (c *userService) GetAllUsersExcept(ctx context.Context, in *GetAllUsersExceptRequest, opts ...client.CallOption) (*UsersResponse, error) {
+func (c *userService) GetAllUsersExcept(ctx context.Context, in *UserIdRequest, opts ...client.CallOption) (*UsersResponse, error) {
 	req := c.c.NewRequest(c.name, "User.GetAllUsersExcept", in)
 	out := new(UsersResponse)
+	err := c.c.Call(ctx, req, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userService) GetUserById(ctx context.Context, in *UserIdRequest, opts ...client.CallOption) (*UserResponse, error) {
+	req := c.c.NewRequest(c.name, "User.GetUserById", in)
+	out := new(UserResponse)
 	err := c.c.Call(ctx, req, out, opts...)
 	if err != nil {
 		return nil, err
@@ -91,15 +101,16 @@ func (c *userService) Register(ctx context.Context, in *RegisterRequest, opts ..
 // Server API for User service
 
 type UserHandler interface {
-	//rpc GetUserById(GetUserByIdRequest) returns (UserResponse){}
-	GetAllUsersExcept(context.Context, *GetAllUsersExceptRequest, *UsersResponse) error
+	GetAllUsersExcept(context.Context, *UserIdRequest, *UsersResponse) error
+	GetUserById(context.Context, *UserIdRequest, *UserResponse) error
 	Login(context.Context, *LoginRequest, *UserResponse) error
 	Register(context.Context, *RegisterRequest, *RegisterResponse) error
 }
 
 func RegisterUserHandler(s server.Server, hdlr UserHandler, opts ...server.HandlerOption) error {
 	type user interface {
-		GetAllUsersExcept(ctx context.Context, in *GetAllUsersExceptRequest, out *UsersResponse) error
+		GetAllUsersExcept(ctx context.Context, in *UserIdRequest, out *UsersResponse) error
+		GetUserById(ctx context.Context, in *UserIdRequest, out *UserResponse) error
 		Login(ctx context.Context, in *LoginRequest, out *UserResponse) error
 		Register(ctx context.Context, in *RegisterRequest, out *RegisterResponse) error
 	}
@@ -114,8 +125,12 @@ type userHandler struct {
 	UserHandler
 }
 
-func (h *userHandler) GetAllUsersExcept(ctx context.Context, in *GetAllUsersExceptRequest, out *UsersResponse) error {
+func (h *userHandler) GetAllUsersExcept(ctx context.Context, in *UserIdRequest, out *UsersResponse) error {
 	return h.UserHandler.GetAllUsersExcept(ctx, in, out)
+}
+
+func (h *userHandler) GetUserById(ctx context.Context, in *UserIdRequest, out *UserResponse) error {
+	return h.UserHandler.GetUserById(ctx, in, out)
 }
 
 func (h *userHandler) Login(ctx context.Context, in *LoginRequest, out *UserResponse) error {

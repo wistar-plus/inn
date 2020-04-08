@@ -76,8 +76,22 @@ func (wsc *WSController) ServeWs(c *gin.Context) {
 				})
 
 			case 2: //查询消息
-				// ownerUid := data.Get("ownerUid").Uint()
-				// otherUid := data.Get("otherUid").Uint()
+				ownerUid := data.Get("ownerUid").Uint()
+				otherUid := data.Get("otherUid").Uint()
+				fromMid := data.Get("fromMid").Uint()
+				count := data.Get("count").Int()
+				ctx, ok := gintool.ContextWithSpan(c)
+				if !ok {
+					log.Println("get context err")
+				}
+				messages := wsc.gws.GetRecordFromMid(ctx, ownerUid, otherUid, fromMid, count)
+
+				conn.WriteJSON(map[string]interface{}{
+					"type":     2,
+					"messages": messages.GetList(),
+					"otherUid": otherUid,
+				})
+
 				// 通过rpc调用 messageService 查询消息
 			case 3: //发送消息
 				senderUid := data.Get("senderUid").Uint()

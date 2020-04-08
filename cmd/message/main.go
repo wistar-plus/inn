@@ -2,10 +2,12 @@ package main
 
 import (
 	"inn/internal/message/conf"
+	"inn/internal/message/repository/persistence/orm"
 	"inn/internal/message/repository/persistence/redis"
 	"inn/internal/message/rpc"
 	"inn/internal/message/service"
 	msgpb "inn/pb/message"
+	userpb "inn/pb/user"
 	"inn/pkg/tracer"
 	"log"
 	"os"
@@ -31,6 +33,9 @@ func main() {
 
 	redis.Init()
 	defer redis.Close()
+
+	orm.Init()
+	defer orm.Close()
 
 	etcdRegistry := etcdv3.NewRegistry(func(options *registry.Options) {
 		options.Addrs = []string{viper.GetString("ETCD.ADDR")}
@@ -61,10 +66,22 @@ func main() {
 	// Init will parse the command line flags.
 	srv.Init()
 
+	userSrv := userpb.NewUserService("go.micro.srv.user", srv.Client())
+
+	msgService := service.NewMessageService(
+		mq,
+		redis.NewConnAddrRepository(),
+		orm.NewRelationRepository(),
+		orm.NewContentRepository(),
+		orm.NewContactRepository(),
+		redis.NewUnreadRepository(),
+		userSrv,
+	)
+
 	// Register handler
 	msgpb.RegisterMessageHandler(
 		srv.Server(),
-		rpc.NewMessageRpc(service.NewMessageService(mq, redis.NewConnAddrRepository())),
+		rpc.NewMessageRpc(msgService),
 	)
 
 	// Run the server

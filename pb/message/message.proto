@@ -3,8 +3,8 @@ syntax = "proto3";
 //protoc --proto_path=. --micro_out=. --go_out=. message.proto
 service Message {
     rpc SendMsg(SendMsgRequest) returns (MessageResponse){}
-    rpc QueryConversationMsg(QueryConversationMsgRequest) returns (MessageResponse){}
-    rpc QueryNewerMsgFrom(QueryNewerMsgFromRequest) returns (MessageResponse){}
+    rpc QueryRecordFrom(QueryRecordFromRequest) returns (MessagesResponse){}
+    rpc QueryNewerMsgFrom(QueryNewerMsgFromRequest) returns (MessagesResponse){}
     rpc QueryContacts(QueryContactsRequest) returns (MessageContactResponse){}
     rpc QueryTotalUnread(QueryTotalUnreadRequest) returns (UnreadResponse){}
 }
@@ -16,9 +16,11 @@ message SendMsgRequest {
     int32 msgType = 4;
 }
 
-message QueryConversationMsgRequest {
+message QueryRecordFromRequest {
     uint64 ownerUid = 1;
     uint64 otherUid = 2;
+    uint64 fromMid = 3;
+    int64 count = 4;
 }
 
 message QueryNewerMsgFromRequest {
@@ -33,6 +35,10 @@ message QueryContactsRequest {
 
 message QueryTotalUnreadRequest {
     uint64 ownerUid = 1;
+}
+
+message MessagesResponse {
+    repeated MessageResponse list = 1;
 }
 
 message MessageResponse {
@@ -52,7 +58,7 @@ message MessageContactResponse {
 	uint64 ownerUid = 1;
 	string ownerAvatar = 2;
     string ownerName = 3;
-    uint64 totalUnread = 4;
+    int64 totalUnread = 4;
     repeated ContactInfo contactInfoList = 5;
 }
 
@@ -63,7 +69,7 @@ message ContactInfo {
     uint64 mid = 4;
     int32 type = 5;
     string content = 6;
-    uint64 convUnread = 7;
+    int64 convUnread = 7;
     int64 createTime = 8;
 }
 

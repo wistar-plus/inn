@@ -37,9 +37,24 @@ func (gs *GateWayService) SendMessage(ctx context.Context, senderUid, recipientU
 	}
 	fmt.Println("发送消息给 msgSrv: ", msg)
 
-	rsp, err := gs.messageSrvice.SendMsg(ctx, msg)
+	_, err := gs.messageSrvice.SendMsg(ctx, msg)
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(rsp)
+}
+
+func (gs *GateWayService) GetRecordFromMid(ctx context.Context, ownerUid, otherUid, mid uint64, count int64) *msgpb.MessagesResponse {
+	req := &msgpb.QueryRecordFromRequest{
+		OwnerUid: ownerUid,
+		OtherUid: otherUid,
+		FromMid:  mid,
+		Count:    count,
+	}
+
+	rsp, err := gs.messageSrvice.QueryRecordFrom(ctx, req)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return rsp
 }

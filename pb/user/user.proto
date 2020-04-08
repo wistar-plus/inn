@@ -2,13 +2,13 @@ syntax = "proto3";
 
 //protoc --proto_path=. --micro_out=. --go_out=. user.proto
 service User {
-	//rpc GetUserById(GetUserByIdRequest) returns (UserResponse){}
-	rpc GetAllUsersExcept(GetAllUsersExceptRequest) returns (UsersResponse){}
+	rpc GetAllUsersExcept(UserIdRequest) returns (UsersResponse){}
+	rpc GetUserById(UserIdRequest) returns (UserResponse){}
 	rpc Login(LoginRequest) returns (UserResponse){}
 	rpc Register(RegisterRequest) returns (RegisterResponse) {}
 }
 
-message GetAllUsersExceptRequest {
+message UserIdRequest{
 	uint64 uid = 1;
 }
 

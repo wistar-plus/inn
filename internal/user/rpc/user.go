@@ -34,12 +34,12 @@ func (ur *userRpc) Login(ctx context.Context, req *userpb.LoginRequest, rsp *use
 
 func (ur *userRpc) Register(ctx context.Context, req *userpb.RegisterRequest, rsp *userpb.RegisterResponse) error {
 
-	_, err := ur.repo.FindByEmail(req.GetEmail())
-	if err != nil {
-		return err
+	user, _ := ur.repo.FindByEmail(req.GetEmail())
+	if user != nil {
+		return e.ERROR_NOTEXIST
 	}
 
-	user := &model.User{
+	user = &model.User{
 		Email:    req.GetEmail(),
 		Pwd:      req.GetPwd(),
 		NickName: req.GetNickName(),
@@ -48,7 +48,7 @@ func (ur *userRpc) Register(ctx context.Context, req *userpb.RegisterRequest, rs
 	return ur.repo.Create(user)
 }
 
-func (ur *userRpc) GetAllUsersExcept(ctx context.Context, req *userpb.GetAllUsersExceptRequest, rsp *userpb.UsersResponse) error {
+func (ur *userRpc) GetAllUsersExcept(ctx context.Context, req *userpb.UserIdRequest, rsp *userpb.UsersResponse) error {
 	users, err := ur.repo.FindUsersByUidIsNot(req.GetUid())
 	if err != nil {
 		return e.ERROR_DBERROR
@@ -63,6 +63,19 @@ func (ur *userRpc) GetAllUsersExcept(ctx context.Context, req *userpb.GetAllUser
 			NickName: user.NickName,
 		}
 	}
+
+	return nil
+}
+
+func (ur *userRpc) GetUserById(ctx context.Context, req *userpb.UserIdRequest, rsp *userpb.UserResponse) error {
+	user, err := ur.repo.FindById(req.GetUid())
+	if err != nil {
+		return e.ERROR_DBERROR
+	}
+
+	rsp.Uid = user.Uid
+	rsp.Email = user.Email
+	rsp.NickName = user.NickName
 
 	return nil
 }

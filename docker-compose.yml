@@ -57,21 +57,33 @@ services:
         - ./mysql/data:/var/lib/mysql      
     networks:
       - innnet
-  # phpmyadmin:
-  #   image: phpmyadmin/phpmyadmin
-  #   container_name: phpmyadmin
-  #   depends_on:
-  #     - mysql
-  #   environment:
-  #     - PMA_HOST=mysql 
-  #     - PMA_USER=${DB_USER}
-  #     - PMA_PORT=${DB_PORT}
-  #     - PMA_PASSWORD=${DB_PASSWORD}
-  #   ports:
-  #     - 9090:80
-  #   restart: always
-  #   networks:
-  #     - usernet
+  mysql_msg:
+    image: mysql:latest
+    container_name: mysql_msg
+    ports: 
+        - 3307:3306
+    environment: 
+        - MYSQL_ROOT_PASSWORD=root
+        - MYSQL_DATABASE=message
+    volumes:
+        - mysql_msg_data:/var/lib/mysql      
+    networks:
+      - innnet
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    depends_on:
+      - mysql
+    environment:
+      - PMA_HOST=mysql 
+      - PMA_USER=root
+      - PMA_PORT=3306
+      - PMA_PASSWORD=root
+    ports:
+      - 9090:80
+    restart: always
+    networks:
+      - innnet
   rabbitmq:
     image: rabbitmq:3.8-management
     container_name: rabbitmq
@@ -129,11 +141,11 @@ services:
       DB_USER: "root"
       DB_PASSWORD: "root"
       DB_NAME: "message"
-      DB_HOST: "mysql"
+      DB_HOST: "mysql_msg"
       DB_PORT: "3306"
     restart: on-failure
     depends_on:
-      - mysql
+      - mysql_msg
       - redis
       - etcd
       - jaeger
@@ -151,11 +163,11 @@ services:
       DB_USER: "root"
       DB_PASSWORD: "root"
       DB_NAME: "message"
-      DB_HOST: "mysql"
+      DB_HOST: "mysql_msg"
       DB_PORT: "3306"
     restart: on-failure
     depends_on:
-      - mysql
+      - mysql_msg
       - redis
       - etcd
       - jaeger
@@ -180,3 +192,6 @@ services:
 networks:
   innnet:
     driver: bridge
+
+volumes:
+  mysql_msg_data:

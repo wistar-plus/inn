@@ -44,21 +44,21 @@ func Router(e *gin.Engine) {
 		micro.Registry(etcdRegistry),
 		micro.Transport(grpc.NewTransport()),
 	)
-	userSrvice.Init()
 	userSrv := userpb.NewUserService("go.micro.srv.user", userSrvice.Client())
 
-	userController := controller.NewUserController(userSrv)
-	e.POST("/register", userController.Register)
-	e.POST("/login", userController.Login)
-
-	//ws
 	msgSrvice := micro.NewService(
 		micro.Name("go.micro.cli.message"),
 		micro.Registry(etcdRegistry),
 		micro.Transport(grpc.NewTransport()),
 	)
-	msgSrvice.Init()
 	msgSrv := msgpb.NewMessageService("go.micro.srv.message", msgSrvice.Client())
+
+	userController := controller.NewUserController(userSrv, msgSrv)
+	e.POST("/register", userController.Register)
+	e.POST("/login", userController.Login)
+
+	//ws
+
 	userConnRepo := syncmap.NewUserConnRepository()
 	userTopicRepo := redis.NewUserTopicRepository()
 	gwService := service.NewGateWayService(userConnRepo, userTopicRepo, msgSrv)
